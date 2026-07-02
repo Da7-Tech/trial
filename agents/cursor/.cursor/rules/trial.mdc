@@ -1,5 +1,5 @@
 ---
-description: Trial — evidence before done. An agent may not claim a task is done until executable evidence survives an independent verdict, scaled to risk.
+description: "Trial — evidence before done. An agent may not claim a task is done until every claim is bound to a receipt (command + exit status + decisive output) that covers it, with scrutiny scaled to risk."
 globs:
 alwaysApply: true
 ---
@@ -8,24 +8,22 @@ alwaysApply: true
 
 > **Don't say done. Prove it.**
 
-Before you write the word **"done"** (or "complete", "finished", "fixed", "shipped") about a task, bind each claim to **executable evidence**: a command you ran plus a hash of its output. A claim with no bound evidence is `NOT_PROVEN`.
+Before you write **"done"** (or "complete", "finished", "fixed", "shipped") about a task, bind every claim to a **receipt**: the exact command you ran, its exit status, and the decisive lines of its output, quoted in your report. A claim with no receipt is `NOT_PROVEN` — you reject it yourself, before anyone else reads it.
 
-> **No "done" without evidence. No evidence without a hash. No escalation unless it's cheaper than the failure it prevents.**
+**Coverage beats green.** A passing suite that never exercises the claimed behavior proves nothing. Restate the bug report or request as an acceptance criterion at the boundary where the user feels it ("an expired session gets redirected", not "the helper returns true"). If no test exercises that criterion, write one, watch it fail on the old behavior, then fix until it passes.
 
 ## What to do
-1. **Frame** — the real goal, testable acceptance criteria, non-goals.
-2. **Build** — do the work.
-3. **Collect evidence** — run the tests/build/lint that prove each claim; record the command + hash of output. "Tests passed" with no bound receipt is rejected at zero cost.
-4. **Risk-score** — spend on proof proportional to risk. Trivial: run the tests, done. High-stakes: spawn fresh agents to judge independently.
-5. **Judge** — for high-risk work, fresh agents (same kind, isolated context) scrutinize the claim and must cite the exact line/test/missing-hash before accepting. Disagreement escalates.
-6. **Deliver** — map each acceptance criterion to its evidence. Never ship a known blocker.
+1. **Frame** — restate the goal as testable acceptance criteria at the user-facing boundary.
+2. **Build** — do the work. Fix root causes: grep for every copy or caller of the logic you touch.
+3. **Prove** — for each criterion, run the command that would fail if your claim were false. Quote command + exit status + decisive output lines in your report.
+4. **Scale scrutiny to risk** — trivial change: run the proving test, ship. High-stakes change: get a fresh-eyes judgment before shipping (below).
+5. **Deliver** — map each criterion to its receipt. Never ship a known blocker; a red test you can explain beats a green claim you can't.
+
+## Fresh judges (high-stakes only)
+If your platform can spawn subagents, give a fresh one only the claim and the receipts, instructed to reject unless the evidence covers the claim — disagreement means not done. If it can't spawn agents, run the adversarial pass yourself as a separate final step: re-read your claim as a reviewer paid to find the uncovered case, and name the exact test or line that covers each criterion — anything you can't name gets downgraded to `NOT_PROVEN` in your report.
 
 ## Never rubber-stamp
-auth / payments / permissions / user data, DB migration, deletes data, **modifies tests to make them pass**, failed the same task twice, no reproducible evidence. For these, always bring in fresh independent judges.
+Auth / payments / permissions / user data, DB migrations, anything that deletes data, **any edit to a test that makes it pass**, second failure on the same task, or evidence that can't be re-run. These always get the adversarial pass.
 
-## Triage FIRST
-Default **fast path**: gates inline, verify by running, minutes. Only large/high-stakes work spawns fresh judges. A simple task taking half an hour is a bug, not rigor.
-
-A verdict with no "evidence checked" is invalid. Finish in a time that fits the task.
-
-Full spec: see the repository root `SKILL.md`.
+## Triage first
+Speed is a feature. A trivial task takes the fast path: make the change, run the proving check, report with the receipt — no ceremony, no tribunal. If a simple fix is growing a courtroom, that's a bug in your process, not rigor.
