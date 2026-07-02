@@ -1,0 +1,14 @@
+{
+  "name": "trial",
+  "owner": {
+    "name": "Da7-Tech",
+    "url": "https://github.com/Da7-Tech"
+  },
+  "plugins": [
+    {
+      "name": "trial",
+      "source": "./",
+      "description": "Evidence before done: no 'done' without a re-runnable receipt that covers the claim."
+    }
+  ]
+}

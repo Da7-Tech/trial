@@ -1,0 +1,32 @@
+{
+  "name": "trial-skill",
+  "version": "0.4.0",
+  "description": "Evidence before done: a behavioral skill that stops AI coding agents from claiming 'done' until every claim is bound to a re-runnable receipt.",
+  "keywords": ["ai-agents", "skills", "claude-code", "cursor", "verification", "rules"],
+  "license": "MIT",
+  "author": {
+    "name": "Da7-Tech",
+    "url": "https://github.com/Da7-Tech"
+  },
+  "homepage": "https://github.com/Da7-Tech/trial",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Da7-Tech/trial.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Da7-Tech/trial/issues"
+  },
+  "bin": {
+    "trial-install": "./bin/install.js"
+  },
+  "files": [
+    "agents/",
+    "skills/",
+    "bin/",
+    "SKILL.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test tests/sync.test.js"
+  }
+}
