@@ -1,0 +1,23 @@
+<svg width="220" height="220" viewBox="0 0 220 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Trial: the scale that only accepts receipts -->
+  <g stroke="#818898" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <!-- pillar and base -->
+    <line x1="110" y1="38" x2="110" y2="170"/>
+    <line x1="74" y1="182" x2="146" y2="182"/>
+    <!-- beam, tilted: evidence is heavier -->
+    <line x1="38" y1="72" x2="182" y2="52"/>
+    <!-- left chains + pan (low, heavy: the receipt) -->
+    <line x1="38" y1="72" x2="24" y2="112"/>
+    <line x1="38" y1="72" x2="52" y2="112"/>
+    <path d="M14 112 Q38 138 62 112"/>
+    <!-- right chains + pan (high, light: the claim) -->
+    <line x1="182" y1="52" x2="168" y2="86"/>
+    <line x1="182" y1="52" x2="196" y2="86"/>
+    <path d="M158 86 Q182 112 206 86"/>
+  </g>
+  <!-- check in the heavy pan -->
+  <path d="M28 116 l7 8 l14 -15" stroke="#22c55e" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- question over the light pan -->
+  <path d="M175 66 q0 -8 8 -8 q8 0 8 7 q0 5 -8 8 l0 4" stroke="#e0b341" stroke-width="6" stroke-linecap="round" fill="none"/>
+  <circle cx="183" cy="83" r="3" fill="#e0b341"/>
+</svg>

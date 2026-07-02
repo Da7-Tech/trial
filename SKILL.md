@@ -1,7 +1,7 @@
 ---
 name: trial
-description: "Gated judging that stops false-done: an agent may not claim a task is done until executable evidence survives an independent verdict. Use for work where a green test is not enough proof."
-version: 0.3.0
+description: "Gated judging that stops false-done: an agent may not claim a task is done until every claim is bound to a receipt — the command it ran, its exit status, and the decisive output — that actually covers the claim. Scrutiny scales with risk. Use for work where a green suite is not enough proof."
+version: 0.4.0
 license: MIT
 ---
 
@@ -11,50 +11,71 @@ license: MIT
 
 Trial is one rule injected into how an agent finishes work:
 
-> **Consider every claim of completion worthless until executable evidence proves it. Spend on that proof in proportion to risk — never more, never less.**
+> **Every claim of completion is worthless until executable evidence covers it. Spend on that proof in proportion to risk — never more, never less.**
 
-It is a **behavioral skill**: it runs with whatever model the user already chose, and the judges are fresh agents of the same kind, spawned automatically when the work is high-stakes. No separate model, no configuration, no setup.
+It is a **behavioral skill**: it ships as a rules file, runs with whatever model you already use, and needs no configuration. The full rule the agents actually read is [`agents/codex/AGENTS.md`](agents/codex/AGENTS.md) — every per-agent copy in `agents/` carries the same canonical body, byte for byte (enforced by [`tests/sync.test.js`](tests/sync.test.js)). This file is the spec behind it.
 
-## The one rule
+## The failure it targets
 
-Before the agent writes the word **"done"** (or "complete", "finished", "fixed", "shipped") about a task, it must bind each claim to **executable evidence** — a command that was actually run, plus a hash of that command's output. A claim with no bound evidence is automatically `NOT_PROVEN`, *before any judge ever reads it*.
+Agents routinely say "done — all tests pass" when the suite never exercised the thing they claim to have fixed. The suite is green because it is blind, not because the work is right. We measured exactly this on real headless agent sessions: without Trial, 2 of 6 agents shipped a bug fix for "expired sessions must redirect" **without any test exercising an expired session**, and one of them attributed coverage to the existing tests that they do not have. With Trial, 6 of 6 left a covering test and quoted a verbatim receipt. ([Full method and numbers](benchmarks/results/2026-07-02-false-done-and-cost.md).)
 
-> **No "done" without evidence. No evidence without a hash. No escalation unless it's cheaper than the failure it prevents.**
+## The receipt
 
-## How hard to scrutinize (scales to risk)
+A **receipt** is: the exact command the agent ran, its exit status, and the decisive lines of its output, quoted in the final report.
+
+- A claim with no receipt is `NOT_PROVEN` — the agent rejects it itself, before any judge reads it.
+- **Coverage beats green.** A receipt only counts if the command it quotes would have *failed* were the claim false. "All tests pass" from a suite that never exercises the claimed behavior covers nothing. The agent restates the request as an acceptance criterion at the boundary where the user feels it, and if no test exercises that criterion, writes one — watching it fail on the old behavior first when possible.
+
+**What a receipt is not.** A receipt is self-reported; it is not cryptographic proof, and a model determined to fabricate output verbatim can fabricate a receipt too. What it changes is the shape of failure: an agent can drift into an unfounded "done" ambiguously, but it cannot quote a command, an exit status, and output lines it never produced without lying outright — a much rarer and much more detectable act, because a receipt is re-runnable by the user. (Earlier versions of Trial required a *hash* of the output instead. That was theater: test output contains timestamps, so the hash is not reproducible, and a self-reported hash is no harder to invent than a self-reported pass. Quoted output is auditable; a hash is not. It was removed in 0.4.0.)
+
+## Scrutiny scales with risk
 
 | Risk | What the agent does |
 |---|---|
-| **trivial** (a util, a small fix) | run the proving tests, done |
-| **default** | collect the claim + run the proving tests |
-| **high-stakes** | spawn fresh agents (of the same kind) to judge the claim independently, each from a different angle, before accepting |
+| **trivial** (a comment, a rename) | make the change, run the proving check, report with the receipt — no ceremony |
+| **default** | acceptance criteria → work → covering test → receipts |
+| **high-stakes** | all of the above, then a fresh-eyes judgment before shipping |
 
-**Never rubber-stamp these** — always scrutinize hardest, and bring in fresh judges: touches auth / payments / permissions / user data, DB migration, deletes data, **modifies tests to make them pass**, failed the same task twice, or has no reproducible evidence.
+**Never rubber-stamp** — always the full adversarial pass: touches auth / payments / permissions / user data, DB migrations, deletes data, **any edit to a test that makes it pass**, second failure on the same task, or evidence that can't be re-run.
 
-## The judges are automatic
+## The judges
 
-Trial never asks the user to pick a judge model. The judges are **fresh agents of the same kind the user already runs**, spawned in isolated contexts:
+For high-stakes work, the claim gets judged by fresh eyes before it ships:
 
-- **low-stakes work** — no judges; verify by running it (the cheapest correct path).
-- **high-stakes work** — dispatch fresh agents to judge the claim, each from a different lens (requirements-match / real execution / adversarial). They must cite the exact line, test, or missing receipt before they accept. Disagreement between judges is the escalation signal — agreement is not.
+- **Platforms with subagents** (Claude Code, and anything with a Task/Agent tool): spawn a fresh agent, give it *only the claim and the receipts*, instructed to reject unless the evidence covers the claim. Disagreement means not done. Fresh context is the point — the judge hasn't watched the work and can't rubber-stamp out of momentum.
+- **Platforms without subagents** (Cursor, Windsurf, Cline, aider, …): the agent runs the adversarial pass itself as a separate, final step — re-reading its own claim as a reviewer paid to find the uncovered case, and naming the exact test or line that covers each criterion. Anything it can't name is downgraded to `NOT_PROVEN` in the report.
 
-This keeps Trial portable: it works the moment you drop the rule into any agent, because the "judge" is just another fresh instance of that same agent.
+Honesty note: judges of the same model share the model's blind spots. A fresh context removes momentum and sunk-cost bias — the two failure modes behind most rubber-stamping — but it is not a different reviewer. If you have a second model available, high-stakes judging is a good place to spend it.
 
 ## Verdicts
 
-- `ACCEPTED` — every claim is bound to passing evidence and covers every acceptance criterion.
-- `NOT_PROVEN` — a claim cites evidence but the receipt is missing or doesn't cover the claim.
-- `NEEDS_FIX` — the evidence runs but exposes a defect.
-- `ESCALATE` — high-stakes work that needs fresh independent judges before it can ship.
+- `ACCEPTED` — every claim is bound to a passing receipt that covers it, and every acceptance criterion is mapped.
+- `NOT_PROVEN` — a claim cites evidence, but the receipt is missing or doesn't cover the claim.
+- `NEEDS_FIX` — the evidence runs and exposes a defect.
+- `ESCALATE` — high-stakes work awaiting the fresh-eyes judgment.
 
-**A verdict with no "evidence checked" is invalid** — treat it as "rejected, re-run". That single rule prevents an agent from *performing* approval instead of *doing* it.
+A verdict with no evidence attached is invalid — treat it as "rejected, re-run". That single rule prevents an agent from *performing* approval instead of doing it.
 
-## Triage FIRST (speed is a feature)
+## Triage first — speed is a feature
 
-Default to the **fast path**: run the gates inline in minutes, verify by executing the work, no fan-out. Only genuinely large or high-stakes work spawns fresh judges. A simple task that takes half an hour, or stalls at "gate 3/8", is a **bug, not rigor**.
+The default is the fast path: change, proving check, receipt, out. Only genuinely high-stakes work gets the judge pass. A simple task that grows a courtroom is a bug in the process, not rigor. Measured cost of the fast path on a trivial task: about **+7% tokens** and one extra run of the test suite ([numbers](benchmarks/results/2026-07-02-false-done-and-cost.md)).
 
-## Honesty
+## What Trial does not do
 
-- "Verified" means nothing without a written artifact showing the method, the evidence, and the result.
-- Finish in a time that fits the task.
-- On the fast path, the trade is honest: you verify by running the work directly instead of spawning fresh judges — correct for low-stakes work.
+- It does not make a weak model strong. On our trap task, every agent *found* the bug; what changed was whether the fix came with proof and honest reporting.
+- It does not guarantee honesty against a model that lies outright — see "What a receipt is not" above.
+- It does not replace CI, code review, or your own judgment. It replaces "trust me, it's done" with something you can re-run.
+
+## Report template
+
+```
+DONE — <one-line claim>
+
+Acceptance criteria → receipts:
+1. <criterion, stated at the user-facing boundary>
+   $ <command>          (exit 0)
+   <decisive output lines>
+2. ...
+
+Not proven / out of scope: <anything you could not bind to a receipt>
+```
