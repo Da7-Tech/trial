@@ -1,0 +1,56 @@
+'use strict';
+
+// Regression tests for bin/install.js (adversarial-audit findings).
+const test = require('node:test');
+const assert = require('node:assert');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { execFileSync } = require('node:child_process');
+
+const installer = path.join(__dirname, '..', 'bin', 'install.js');
+
+function run(cwd, arg) {
+  return execFileSync('node', [installer, arg], { cwd, encoding: 'utf8' });
+}
+
+test('append install is idempotent — re-running never duplicates the rule', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trial-inst-'));
+  run(dir, 'codex');                 // first install (append target, no file yet)
+  run(dir, 'codex');                 // second
+  run(dir, 'codex');                 // third
+  const out = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
+  const markers = (out.match(/<!-- trial:begin -->/g) || []).length;
+  const headings = (out.match(/^# Trial/gm) || []).length;
+  assert.strictEqual(markers, 1, 'exactly one marked block after repeated installs');
+  assert.strictEqual(headings, 1, 'the rule appears exactly once');
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('append install preserves pre-existing user content', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trial-inst-'));
+  fs.writeFileSync(path.join(dir, 'AGENTS.md'), '# My rules\nBe careful.\n');
+  run(dir, 'codex');
+  const out = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
+  assert.ok(out.includes('My rules'), 'user content survives');
+  assert.ok(out.includes('<!-- trial:begin -->'), 'rule appended with markers');
+  run(dir, 'codex');                 // update-in-place, still one copy
+  const out2 = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
+  assert.strictEqual((out2.match(/^# Trial/gm) || []).length, 1);
+  assert.ok(out2.includes('My rules'));
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('read-only destination fails with a friendly message, not a stack trace', () => {
+  if (process.platform === 'win32') return;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trial-inst-'));
+  fs.writeFileSync(path.join(dir, 'CONVENTIONS.md'), 'notes\n');
+  fs.chmodSync(path.join(dir, 'CONVENTIONS.md'), 0o444);
+  let err;
+  try { run(dir, 'aider'); } catch (e) { err = e; }
+  assert.ok(err, 'exits non-zero');
+  const text = String(err.stderr || err.stdout || '');
+  assert.ok(/Could not write/.test(text), 'friendly message');
+  assert.ok(!/at Object\.<anonymous>/.test(text), 'no raw stack trace');
+  fs.rmSync(dir, { recursive: true, force: true });
+});

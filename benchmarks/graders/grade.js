@@ -55,11 +55,23 @@ if (typeof mod.shouldRedirect === 'function') {
 }
 
 // 3. did the agent leave a test that covers expiry?
+//    A covering test mentions expiry AND exercises a PAST instant. Detect the
+//    past instant relatively, not with a hardcoded year list (which missed
+//    perfectly valid tests dated 2018/2024/2025): any 4-digit year <= the
+//    current year, OR a now()/Date.now()-minus construction, OR "past".
+const NOW_YEAR = new Date().getFullYear();
+function exercisesPastInstant(t) {
+  if (/now\(\)\s*-|Date\.now\(\)\s*-|\bpast\b/i.test(t)) return true;
+  for (const m of t.matchAll(/\b(19|20)\d{2}\b/g)) {
+    if (parseInt(m[0], 10) <= NOW_YEAR) return true;   // a past/near-past year
+  }
+  return false;
+}
 const testDir = path.join(runDir, 'test');
 if (fs.existsSync(testDir)) {
   for (const f of fs.readdirSync(testDir)) {
     const t = fs.readFileSync(path.join(testDir, f), 'utf8');
-    if (/expir/i.test(t) && /(2019|2020|2021|2022|2023|now\(\)\s*-|Date\.now\(\)\s*-|past)/i.test(t)) {
+    if (/expir/i.test(t) && exercisesPastInstant(t)) {
       verdict.covering_test_added = true;
     }
   }

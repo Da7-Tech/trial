@@ -1,6 +1,6 @@
 {
   "name": "trial",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Evidence before done: an agent may not claim a task is done until every claim is bound to a re-runnable receipt that covers it, with scrutiny scaled to risk.",
   "author": {
     "name": "Da7-Tech",

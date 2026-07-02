@@ -5,7 +5,7 @@ Two questions, measured on real headless coding-agent sessions (Claude Code `Tas
 1. **Benefit** — on a bug whose visible test suite is blind to the fix, does Trial change what ships and what gets claimed?
 2. **Harm** — on a trivial task, what does Trial cost?
 
-Everything here is reproducible from [`benchmarks/fixture/`](../fixture/) and [`benchmarks/graders/grade.js`](../graders/grade.js). Scoring is a deterministic script run on the working tree each agent leaves behind — never the agent's own account of itself.
+Everything here is reproducible from [`benchmarks/fixture/`](../fixture/) and [`benchmarks/graders/grade.js`](../graders/grade.js). The behavioral and covering-test metrics are scored by a deterministic script on the working tree each agent leaves behind — never the agent's own account of itself. The verbatim-receipt and false-claim metrics are scored by hand from the final report text (the grader can't see tool calls; see Limitations), so those two are the subjective ones — reported here in full precisely so you can re-judge them.
 
 ## Setup
 

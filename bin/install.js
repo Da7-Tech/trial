@@ -45,23 +45,35 @@ if (!TARGETS[arg]) { console.error(`Unknown agent "${arg}".`); usage(1); }
 const [srcRel, destRel, append] = TARGETS[arg];
 const src = fs.readFileSync(path.join(pkgRoot, srcRel), 'utf8');
 const dest = path.join(process.cwd(), destRel);
-fs.mkdirSync(path.dirname(dest), { recursive: true });
+const block = `${BEGIN}\n${src.trim()}\n${END}\n`;
 
-if (!fs.existsSync(dest)) {
-  fs.writeFileSync(dest, src);
-  console.log(`Trial installed: ${destRel}`);
-} else if (append) {
-  let existing = fs.readFileSync(dest, 'utf8');
-  const block = `${BEGIN}\n${src.trim()}\n${END}\n`;
-  if (existing.includes(BEGIN)) {
-    existing = existing.replace(new RegExp(`${BEGIN}[\\s\\S]*?${END}\\n?`), block);
-    fs.writeFileSync(dest, existing);
-    console.log(`Trial updated inside existing ${destRel}`);
+try {
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+
+  if (!fs.existsSync(dest)) {
+    // For append-mode targets, write the FIRST copy already wrapped in
+    // markers so a later run updates it in place instead of appending a
+    // second, marker-less duplicate that could never be cleaned up.
+    fs.writeFileSync(dest, append ? block : src);
+    console.log(`Trial installed: ${destRel}`);
+  } else if (append) {
+    let existing = fs.readFileSync(dest, 'utf8');
+    if (existing.includes(BEGIN)) {
+      existing = existing.replace(new RegExp(`${BEGIN}[\\s\\S]*?${END}\\n?`), block);
+      fs.writeFileSync(dest, existing);
+      console.log(`Trial updated inside existing ${destRel}`);
+    } else {
+      fs.writeFileSync(dest, existing.trimEnd() + '\n\n' + block);
+      console.log(`Trial appended to existing ${destRel}`);
+    }
   } else {
-    fs.writeFileSync(dest, existing.trimEnd() + '\n\n' + block);
-    console.log(`Trial appended to existing ${destRel}`);
+    console.error(`${destRel} already exists — refusing to overwrite. Remove it first or merge by hand.`);
+    process.exit(1);
   }
-} else {
-  console.error(`${destRel} already exists — refusing to overwrite. Remove it first or merge by hand.`);
+} catch (err) {
+  // Friendly message instead of a raw Node stack trace (e.g. EACCES on a
+  // read-only destination, EISDIR, etc.).
+  console.error(`Could not write ${destRel}: ${err.code || err.message}. ` +
+    `Check the path is writable, then retry.`);
   process.exit(1);
 }

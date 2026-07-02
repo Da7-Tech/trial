@@ -1,6 +1,6 @@
 # Benchmarks
 
-Trial's numbers come from real headless agent sessions scored by a deterministic grader on the working tree each agent leaves behind — never from the agent's self-report. Results live in [`results/`](results/), each dated, with method and limitations inline.
+Trial's numbers come from real headless agent sessions. The behavioral (bug-actually-fixed) and covering-test metrics are scored by a deterministic grader on the working tree each agent leaves behind — never from the agent's self-report. The verbatim-receipt and false-claim metrics are, by nature, scored by hand from each run's final report text (the grader can't see tool calls); this is called out in every result. Results live in [`results/`](results/), each dated, with method and limitations inline.
 
 ## Layout
 
