@@ -17,14 +17,18 @@
 
 <p align="center">
   <strong>Covering test 6/6 vs 4/6 &middot; verbatim receipts 6/6 vs 0/6 &middot; false claims 0 vs 1 &middot; for +4% tokens</strong><br>
-  <sub>Measured on real headless agent sessions (Haiku 4.5, n=6 per arm) fixing a bug whose test suite is green while the bug ships. Correctness and the covering-test metric are scored by a hidden deterministic grader on the tree each agent leaves behind; the verbatim-receipt and false-claim counts are scored by hand from each run's final report (both disclosed in the linked method). Correctness itself saturated (6/6 both arms; the fixture was too easy for this model, reported as such). On a trivial task Trial costs +7% tokens and one extra test run. <a href="benchmarks/results/2026-07-02-false-done-and-cost.md">Full method, aggregate numbers, and limitations</a> &middot; <a href="benchmarks/">rerun the harness</a>.</sub>
+  <sub>Measured on the v0.4.0 rule in real headless agent sessions (Haiku 4.5, n=6 per arm) fixing a bug whose test suite is green while the bug ships. Correctness and the covering-test metric are scored by a hidden deterministic grader on the tree each agent leaves behind; the verbatim-receipt and false-claim counts are scored by hand from each run's final report (both disclosed in the linked method). Correctness itself saturated (6/6 both arms; the fixture was too easy for this model, reported as such). On a trivial task Trial costs +7% tokens and one extra test run. Version 0.5 adds a stronger pre-delivery gate and has not yet been re-measured on live agents. <a href="benchmarks/results/2026-07-02-false-done-and-cost.md">Full method, aggregate numbers, and limitations</a> &middot; <a href="benchmarks/">rerun the harness</a>.</sub>
 </p>
 
 ---
 
 Your agent says **"Done. All tests pass."** The suite is green. The bug is still there — because nothing in the suite ever exercised the thing it claims to have fixed. Green because blind, not because right.
 
-Trial is one rule dropped into your agent's rules file: **no "done" until every claim is bound to a receipt** — the exact command it ran, the exit status, and the decisive output, quoted in the report — and the receipt must actually *cover* the claim. It works with whatever model you already run. No config, no server, no separate judge model.
+Trial is a pre-delivery rule dropped into your agent's rules file. The proposed
+final response stays private until every user-visible claim is bound to a fresh
+receipt — the exact command run, its exit status, and decisive output — and the
+receipt must actually *cover* the claim. Unsupported drafts go back to proof or
+repair instead of reaching the user.
 
 ## Real before / after
 
@@ -49,15 +53,16 @@ No test for expired sessions was added — and that first bullet is **false**: n
 
 ## The one rule
 
-> **No "done" without a receipt. No receipt without coverage. No escalation unless it's cheaper than the failure it prevents.**
+> **Draft privately. Prove every claim. Release only what Trial accepts.**
 
 1. **Frame** — restate the request as acceptance criteria at the boundary where the user feels it ("an expired session gets redirected", not "the helper returns true").
-2. **Build** — do the work; grep for every copy or caller of the logic you touch.
+2. **Build** — do the work; search for every copy or caller of the logic you touch.
 3. **Prove** — for each criterion, run the command that would *fail if the claim were false*. No such test? Write it, watch it fail on the old behavior, then fix.
-4. **Scale scrutiny to risk** — trivial: change, proving check, receipt, out. High-stakes (auth, payments, migrations, deleted data, edited tests, second failure): a fresh-eyes judgment before shipping — a spawned subagent where the platform has them, a separate adversarial self-review pass where it doesn't.
-5. **Deliver** — map each criterion to its receipt. A red test you can explain beats a green claim you can't.
+4. **Draft privately** — prepare the proposed final response and extract every factual or completion claim it would show the user.
+5. **Judge** — reject the draft unless every claim is covered. High-stakes work gets a fresh-eyes adversarial judgment.
+6. **Deliver** — send only accepted claims. A negative verdict returns the agent to proof or repair; it is not shown to the user as an accusation.
 
-The full rule your agent reads is ~2 KB: [`agents/codex/AGENTS.md`](agents/codex/AGENTS.md). The spec behind it: [`SKILL.md`](SKILL.md). Every per-agent copy is byte-synced to that one body and CI fails if any drifts.
+The full rule your agent reads is [`agents/codex/AGENTS.md`](agents/codex/AGENTS.md). The spec behind it: [`SKILL.md`](SKILL.md). Every per-agent copy is byte-synced to that one body and CI fails if any drifts.
 
 ## Install
 
@@ -93,8 +98,21 @@ Or copy the file yourself:
 
 ## FAQ
 
+**Does Trial stop the lie before the user sees it?**
+That is the v0.5 contract. The agent must hold the response as a private draft,
+judge every visible claim, and release it only after acceptance. Missing evidence
+returns the agent to work; the user sees verified results or a precise incomplete
+status, not an internal `NOT_PROVEN` verdict or an accusation. This is behavioral
+enforcement: a rules file cannot physically restrain a hostile model that ignores
+its instructions, while a host-level pre-response hook can.
+
 **Is a receipt actual proof?**
-No, and Trial's own spec says so. A receipt is self-reported — a model determined to lie can fabricate one. What it changes is the shape of failure: an agent can drift into an unfounded "done" ambiguously, but it can't quote a command and output it never ran without lying *outright*, and a receipt is something you can re-run. Earlier versions required a hash of the output instead; that was worse — test output has timestamps, so the hash was never reproducible, and a self-reported hash proves nothing a quoted line doesn't. We removed it and [wrote down why](CHANGELOG.md).
+It is auditable evidence, not cryptographic proof. Trial requires fresh execution,
+coverage, and consistency with the current tree, but a model that fabricates tool
+output can fabricate a receipt. Host-captured tool traces and continuous
+integration are stronger evidence. Earlier versions required an output hash; that
+was worse because timestamped output is not reproducible and a self-reported hash
+proves nothing. We removed it and [wrote down why](CHANGELOG.md).
 
 **Won't this slow down small edits?**
 Measured: +7% tokens on a trivial task, no scope creep, no spawned judges — the overhead is your test suite running once as the receipt (which roughly doubles wall time on a seconds-long task; that's the honest number). The rule's triage clause exists exactly for this: fast path by default, judges only when the stakes justify them.
@@ -107,7 +125,11 @@ Yes. Fresh context removes momentum and sunk-cost bias — the failure modes beh
 
 ## Benchmarks
 
-The harness ships in this repo: a trap fixture whose visible suite is green while the bug ships, a deterministic hidden grader, the verbatim prompts, and [rules for adding results](benchmarks/README.md) — including: losing metrics get published, saturated metrics get reported as saturated, and the rule text under test must be byte-identical to what ships. PRs with new fixtures, models, or harnesses are the most valuable thing you can contribute.
+The harness ships in this repo: a trap fixture whose visible suite is green while
+the bug ships, a deterministic hidden grader, the verbatim prompts, and
+[rules for adding results](benchmarks/README.md). The published result measured
+the v0.4.0 rule. New v0.5 results must use the current canonical body byte for
+byte and must publish losing and saturated metrics too.
 
 ## License
 

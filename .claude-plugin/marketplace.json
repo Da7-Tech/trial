@@ -8,7 +8,7 @@
     {
       "name": "trial",
       "source": "./",
-      "description": "Evidence before done: no 'done' without a re-runnable receipt that covers the claim."
+      "description": "Pre-delivery evidence gate: unsupported completion claims never reach the user."
     }
   ]
 }

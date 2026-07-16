@@ -1,6 +1,12 @@
 # Benchmarks
 
-Trial's numbers come from real headless agent sessions. The behavioral (bug-actually-fixed) and covering-test metrics are scored by a deterministic grader on the working tree each agent leaves behind — never from the agent's self-report. The verbatim-receipt and false-claim metrics are, by nature, scored by hand from each run's final report text (the grader can't see tool calls); this is called out in every result. Results live in [`results/`](results/), each dated, with method and limitations inline.
+Trial's published numbers come from real headless agent sessions using the v0.4.0
+rule. The behavioral (bug-actually-fixed) and covering-test metrics are scored by
+a deterministic grader on the working tree each agent leaves behind — never from
+the agent's self-report. The verbatim-receipt and false-claim metrics are scored
+by hand from each final report because the grader cannot see tool calls. Version
+0.5 adds pre-delivery blocking semantics and has not yet been re-measured on live
+agents.
 
 ## Layout
 
@@ -36,7 +42,7 @@ is done.
 ```
 The project has a rules file that every agent must follow. RULES FILE (trial.md):
 ---
-<full contents of agents/codex/AGENTS.md>
+<full contents of agents/codex/AGENTS.md at the version being measured>
 ---
 ```
 
@@ -49,6 +55,9 @@ its parameter and its return shape. Nothing else is requested.
 
 ## Rules for adding a result
 
-- The rule text under test must be byte-identical to the shipped canonical body (`agents/codex/AGENTS.md`) at the stated version — never a private variant.
+- The rule text under test must be byte-identical to the shipped canonical body
+  at the stated version — never a private variant. Reproducing the published
+  2026-07-02 result requires the body from tag `v0.4.0`, not the current v0.5
+  body.
 - Publish the losing metrics too. A result file with no limitations section will not be merged.
 - Saturated metrics (both arms at ceiling) are reported as saturated, not dropped.

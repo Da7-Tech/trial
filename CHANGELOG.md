@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.5.0 — 2026-07-16
+
+Pre-delivery enforcement semantics.
+
+- **Trial now gates the response, not merely the wording of the report.** The
+  agent must hold its proposed final response as a private draft, extract every
+  user-visible factual and completion claim, and release it only after all
+  claims are accepted.
+- **Negative verdicts stay internal.** `NOT_PROVEN`, `NEEDS_EVIDENCE`, and
+  `NEEDS_FIX` send the agent back to proof or repair; they are not presented to
+  the user as a story that Trial caught a lie.
+- **The gate fails closed.** Unsupported claims cannot be softened into implied
+  success. If bounded repair cannot establish proof, the only permitted output
+  is a precise incomplete status with the blocker and remaining work.
+- **Policy regression coverage added.** Tests enforce draft-before-judge-before-
+  release ordering, internal-only negative verdicts, and byte-identical rules
+  across all twelve supported agent formats.
+- **Measurement scope is explicit.** The published agent-session benchmark used
+  the 0.4 rule. Version 0.5 preserves its receipt and coverage requirements but
+  adds stronger pre-delivery semantics that have not yet been re-benchmarked on
+  live agents.
+
 ## 0.4.2 — 2026-07-16
 
 Evidence-harness hardening; the measured Trial rule itself is unchanged.

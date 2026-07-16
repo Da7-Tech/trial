@@ -40,23 +40,51 @@ test('frontmattered agent copies match canonical rule', () => {
   }
 });
 
-// Load-bearing phrases must survive verbatim in both the canonical rule and the spec.
-// Changing a rule's wording trips this on purpose: it is the reminder to re-measure
-// and to propagate everywhere. (The benchmark measured this exact text.)
+// Load-bearing policy phrases must survive in both the canonical rule and the
+// spec. The published agent benchmark remains tied to the v0.4.0 rule; these
+// invariants protect the stronger v0.5 pre-delivery contract.
 const INVARIANTS = [
   'receipt',
   'Coverage beats green',
-  'edit to a test that makes it pass',
+  'private draft',
+  'Fail closed',
+  'do not send the draft',
+  'send the final response only when every user-visible claim is accepted',
   'NOT_PROVEN',
   'no ceremony',
 ];
 
 test('invariant phrases present in rule and spec', () => {
-  const spec = read('SKILL.md');
+  const normalize = (text) => text.replace(/\s+/g, ' ');
+  const rule = normalize(canonical);
+  const spec = normalize(read('SKILL.md'));
   for (const phrase of INVARIANTS) {
-    assert.ok(canonical.includes(phrase), `canonical rule lost invariant: "${phrase}"`);
+    assert.ok(rule.includes(phrase), `canonical rule lost invariant: "${phrase}"`);
     assert.ok(spec.includes(phrase), `SKILL.md spec lost invariant: "${phrase}"`);
   }
+});
+
+test('pre-delivery gate blocks unsupported claims before the user sees them', () => {
+  const lower = canonical.toLowerCase();
+  const draft = lower.indexOf('draft privately');
+  const judge = lower.indexOf('judge');
+  const release = lower.indexOf('release');
+
+  assert.ok(draft >= 0, 'rule must create a private draft');
+  assert.ok(judge > draft, 'judgment must happen after the private draft');
+  assert.ok(release > judge, 'release must happen only after judgment');
+  assert.ok(
+    canonical.includes('do not send the draft or this internal verdict'),
+    'negative verdicts must remain internal',
+  );
+  assert.ok(
+    canonical.includes('never a story that Trial "caught a lie."'),
+    'the user must not receive an accusation instead of better work',
+  );
+  assert.ok(
+    !canonical.includes('downgraded to `NOT_PROVEN` in your report'),
+    'unsupported claims must not leak into the public report',
+  );
 });
 
 test('versions agree across spec, plugin and package', () => {

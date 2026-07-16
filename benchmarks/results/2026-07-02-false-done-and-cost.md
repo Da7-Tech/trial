@@ -63,10 +63,17 @@ Trial did not spiral into ceremony: no judges spawned, no extra files, no scope 
   original source-text detector with a behavioral mutation test. The historical
   aggregate above used the earlier detector and cannot be regraded without the
   original run trees.
-- The rule text measured is byte-identical to the shipped canonical body in [`agents/codex/AGENTS.md`](../../agents/codex/AGENTS.md) at v0.4.0.
+- The rule text measured was byte-identical to
+  `agents/codex/AGENTS.md` at tag `v0.4.0`. The current v0.5 body adds
+  pre-delivery blocking semantics and is not what this historical result
+  measured.
 
 ## Reproduce
 
 1. Copy `benchmarks/fixture/` to a fresh directory per run.
-2. Launch a headless agent per run: baseline gets the bug-report prompt; the Trial arm gets the same prompt with `agents/codex/AGENTS.md` inlined as a project rules file. (Prompts verbatim in [`benchmarks/README.md`](../README.md).)
+2. Launch a headless agent per run: baseline gets the bug-report prompt; the
+   Trial arm gets the same prompt with the canonical rule for the version under
+   test inlined as a project rules file. To reproduce this historical result,
+   extract `agents/codex/AGENTS.md` from tag `v0.4.0`. (Prompts verbatim in
+   [`benchmarks/README.md`](../README.md).)
 3. Score every run with `node benchmarks/graders/grade.js <run-dir>` and inspect final reports for receipts.

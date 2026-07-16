@@ -47,6 +47,14 @@ test('all twelve documented targets install to their advertised paths', () => {
       assert.ok(fs.existsSync(dest), `${agent} did not create ${rel}`);
       const first = fs.readFileSync(dest, 'utf8');
       assert.ok(first.includes('# Trial'), `${agent} target lacks the Trial rule`);
+      assert.ok(
+        first.includes('private draft'),
+        `${agent} target lacks the pre-delivery draft gate`,
+      );
+      assert.ok(
+        first.includes('do not send the draft'),
+        `${agent} target lacks fail-closed verdict handling`,
+      );
 
       if (APPEND_TARGETS.has(agent)) {
         run(dir, agent);
