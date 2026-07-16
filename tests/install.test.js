@@ -10,9 +10,65 @@ const { execFileSync } = require('node:child_process');
 
 const installer = path.join(__dirname, '..', 'bin', 'install.js');
 
+const TARGETS = {
+  claude: '.claude/skills/trial/SKILL.md',
+  cursor: '.cursor/rules/trial.mdc',
+  codex: 'AGENTS.md',
+  opencode: 'AGENTS.md',
+  windsurf: '.windsurf/rules/trial.md',
+  cline: '.clinerules/trial.md',
+  copilot: '.github/copilot-instructions.md',
+  kiro: '.kiro/steering/trial.md',
+  roo: '.roo/rules/trial.md',
+  zed: '.rules',
+  aider: 'CONVENTIONS.md',
+  gemini: 'GEMINI.md',
+};
+
+const APPEND_TARGETS = new Set([
+  'codex',
+  'opencode',
+  'copilot',
+  'zed',
+  'aider',
+  'gemini',
+]);
+
 function run(cwd, arg) {
   return execFileSync('node', [installer, arg], { cwd, encoding: 'utf8' });
 }
+
+test('all twelve documented targets install to their advertised paths', () => {
+  for (const [agent, rel] of Object.entries(TARGETS)) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), `trial-${agent}-`));
+    try {
+      run(dir, agent);
+      const dest = path.join(dir, rel);
+      assert.ok(fs.existsSync(dest), `${agent} did not create ${rel}`);
+      const first = fs.readFileSync(dest, 'utf8');
+      assert.ok(first.includes('# Trial'), `${agent} target lacks the Trial rule`);
+
+      if (APPEND_TARGETS.has(agent)) {
+        run(dir, agent);
+        const second = fs.readFileSync(dest, 'utf8');
+        assert.strictEqual(
+          (second.match(/<!-- trial:begin -->/g) || []).length,
+          1,
+          `${agent} duplicated the managed block`,
+        );
+      } else {
+        assert.throws(
+          () => run(dir, agent),
+          /Command failed/,
+          `${agent} should refuse to overwrite a dedicated rule file`,
+        );
+        assert.strictEqual(fs.readFileSync(dest, 'utf8'), first);
+      }
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }
+});
 
 test('append install is idempotent — re-running never duplicates the rule', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trial-inst-'));

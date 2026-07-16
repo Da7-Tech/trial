@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.2 — 2026-07-16
+
+Evidence-harness hardening; the measured Trial rule itself is unchanged.
+
+- **Covering-test scoring is now behavioral.** The grader mutates the
+  user-facing expired-session path back to the planted bug and requires the
+  candidate suite to fail. The old text heuristic could be fooled by a comment
+  containing the word "expired" and a past year.
+- **The grader now has adversarial regression tests.** They distinguish the
+  pristine trap, a comment-only decoy, a complete fix with no covering test,
+  and a complete fix whose test rejects the mutation.
+- **All twelve installer targets are exercised.** Dedicated-file targets must
+  refuse overwrite; shared-file targets must remain idempotent.
+- **Historical evidence is described precisely.** The repository publishes
+  aggregate results and selected verbatim excerpts, not every raw run tree and
+  full transcript. The harness reproduces the protocol; it cannot reconstruct
+  the original runs that were not retained.
+
 ## 0.4.1 — 2026-07-02
 
 Adversarial-audit fixes (Opus fleet, each finding reproduced then fixed):
@@ -33,7 +51,7 @@ The measured release. Everything below was driven by running the rule against re
 - **6 new agent formats** (Copilot, Kiro, Roo, Zed, aider, Gemini CLI) on top of Claude Code, Cursor, Codex/OpenCode, Windsurf, Cline — all byte-synced to one canonical body, enforced by `tests/sync.test.js` in CI.
 - **Claude Code plugin**: `/plugin marketplace add Da7-Tech/trial` then `/plugin install trial@trial`.
 - **Zero-dependency installer**: `npx github:Da7-Tech/trial <agent>` (append-with-markers on shared files like `AGENTS.md`, never a silent overwrite).
-- Real before/after transcripts from the benchmark runs in `examples/`.
+- Real before/after excerpts from the benchmark runs in `examples/`.
 
 ## 0.3.0 — 2026-06
 

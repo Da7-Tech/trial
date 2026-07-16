@@ -1,6 +1,6 @@
 {
   "name": "trial-skill",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Evidence before done: a behavioral skill that stops AI coding agents from claiming 'done' until every claim is bound to a re-runnable receipt.",
   "keywords": [
     "ai-agents",

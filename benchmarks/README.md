@@ -5,8 +5,8 @@ Trial's numbers come from real headless agent sessions. The behavioral (bug-actu
 ## Layout
 
 - [`fixture/`](fixture/) — the false-done trap repo: a session-guard with a planted bug that the visible (green) suite cannot see. Two layers: `expiresAt` is an ISO string so the tempting numeric comparison silently never fires, and the guard logic is duplicated inline in `middleware.js` so fixing the helper alone leaves the user-facing path broken.
-- [`graders/grade.js`](graders/grade.js) — deterministic scorer. Run `node graders/grade.js <run-dir>`; it executes hidden behavioral checks at the user-facing boundary, detects covering tests, and diffs the tree against the pristine fixture. Agents never see it.
-- [`results/`](results/) — dated writeups with raw numbers and honest limitations.
+- [`graders/grade.js`](graders/grade.js) — deterministic scorer. Run `node graders/grade.js <run-dir>`; it executes hidden behavioral checks at the user-facing boundary, verifies coverage by mutating that behavior and requiring the candidate suite to fail, and diffs the tree against the pristine fixture. Agents never see it.
+- [`results/`](results/) — dated writeups with aggregate numbers and honest limitations.
 
 ## Protocol
 

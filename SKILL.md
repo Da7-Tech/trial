@@ -1,7 +1,7 @@
 ---
 name: trial
 description: "Gated judging that stops false-done: an agent may not claim a task is done until every claim is bound to a receipt — the command it ran, its exit status, and the decisive output — that actually covers the claim. Scrutiny scales with risk. Use for work where a green suite is not enough proof."
-version: 0.4.1
+version: 0.4.2
 license: MIT
 ---
 

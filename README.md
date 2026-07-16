@@ -17,7 +17,7 @@
 
 <p align="center">
   <strong>Covering test 6/6 vs 4/6 &middot; verbatim receipts 6/6 vs 0/6 &middot; false claims 0 vs 1 &middot; for +4% tokens</strong><br>
-  <sub>Measured on real headless agent sessions (Haiku 4.5, n=6 per arm) fixing a bug whose test suite is green while the bug ships. Correctness and the covering-test metric are scored by a hidden deterministic grader on the tree each agent leaves behind; the verbatim-receipt and false-claim counts are scored by hand from each run's final report (both disclosed in the linked method). Correctness itself saturated (6/6 both arms; the fixture was too easy for this model, reported as such). On a trivial task Trial costs +7% tokens and one extra test run. <a href="benchmarks/results/2026-07-02-false-done-and-cost.md">Full method, raw numbers, and limitations</a> &middot; <a href="benchmarks/">reproduce it</a>.</sub>
+  <sub>Measured on real headless agent sessions (Haiku 4.5, n=6 per arm) fixing a bug whose test suite is green while the bug ships. Correctness and the covering-test metric are scored by a hidden deterministic grader on the tree each agent leaves behind; the verbatim-receipt and false-claim counts are scored by hand from each run's final report (both disclosed in the linked method). Correctness itself saturated (6/6 both arms; the fixture was too easy for this model, reported as such). On a trivial task Trial costs +7% tokens and one extra test run. <a href="benchmarks/results/2026-07-02-false-done-and-cost.md">Full method, aggregate numbers, and limitations</a> &middot; <a href="benchmarks/">rerun the harness</a>.</sub>
 </p>
 
 ---

@@ -5,7 +5,7 @@ Two questions, measured on real headless coding-agent sessions (Claude Code `Tas
 1. **Benefit** — on a bug whose visible test suite is blind to the fix, does Trial change what ships and what gets claimed?
 2. **Harm** — on a trivial task, what does Trial cost?
 
-Everything here is reproducible from [`benchmarks/fixture/`](../fixture/) and [`benchmarks/graders/grade.js`](../graders/grade.js). The behavioral and covering-test metrics are scored by a deterministic script on the working tree each agent leaves behind — never the agent's own account of itself. The verbatim-receipt and false-claim metrics are scored by hand from the final report text (the grader can't see tool calls; see Limitations), so those two are the subjective ones — reported here in full precisely so you can re-judge them.
+The experiment protocol can be rerun from [`benchmarks/fixture/`](../fixture/) and [`benchmarks/graders/grade.js`](../graders/grade.js). The behavioral and covering-test metrics were scored by a deterministic script on the working tree each agent left behind — never the agent's own account of itself. The verbatim-receipt and false-claim metrics were scored by hand from each final report (the grader can't see tool calls; see Limitations), so those two are subjective. The historical run trees and complete reports were not retained in this repository, so the aggregate below cannot be independently re-scored from this checkout.
 
 ## Setup
 
@@ -55,6 +55,14 @@ Trial did not spiral into ceremony: no judges spawned, no extra files, no scope 
 - **One model, one harness.** Haiku 4.5 via Claude Code Task subagents. Weaker or stronger models, and other harnesses, may differ; the correctness ceiling means this data says nothing about Trial improving *fix rates* — only proof discipline and report honesty.
 - **The judge path wasn't exercised.** Neither task is high-stakes under the rule, so the fresh-judge mechanism ran in zero runs; these numbers cover the fast path only.
 - **The grader can't see tool calls**, only the tree left behind and the final report. "Receipt" scoring is of the report text.
+- **Historical artifacts are incomplete.** The per-run trees and complete final
+  reports were not retained here. The published aggregates and selected
+  verbatim excerpts document the original reading, while the shipped harness
+  supports a fresh reproduction rather than reconstruction of those runs.
+- **Covering-test scoring was later hardened.** Version 0.4.2 replaced the
+  original source-text detector with a behavioral mutation test. The historical
+  aggregate above used the earlier detector and cannot be regraded without the
+  original run trees.
 - The rule text measured is byte-identical to the shipped canonical body in [`agents/codex/AGENTS.md`](../../agents/codex/AGENTS.md) at v0.4.0.
 
 ## Reproduce

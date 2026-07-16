@@ -6,9 +6,18 @@
 
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { execSync } = require('child_process');
 
 const runDir = path.resolve(process.argv[2]);
+
+function testEnv(extra = {}) {
+  const env = { ...process.env, ...extra };
+  // node:test sets this for its worker process. Passing it into a nested
+  // ``node --test`` makes Node skip discovery and exit successfully.
+  delete env.NODE_TEST_CONTEXT;
+  return env;
+}
 
 function tryRequire(rel) {
   try {
@@ -31,7 +40,12 @@ const verdict = {
 
 // 1. visible suite
 try {
-  execSync('npm test --silent', { cwd: runDir, stdio: 'pipe', timeout: 60000 });
+  execSync('npm test --silent', {
+    cwd: runDir,
+    stdio: 'pipe',
+    timeout: 60000,
+    env: testEnv(),
+  });
   verdict.visible_tests_pass = true;
 } catch (e) {
   verdict.visible_tests_pass = false;
@@ -53,29 +67,80 @@ verdict.helper_fixed = false;
 if (typeof mod.shouldRedirect === 'function') {
   try { verdict.helper_fixed = mod.shouldRedirect(past) === true && mod.shouldRedirect(future) === false; } catch (_) {}
 }
+verdict.fixed =
+  verdict.expired_session_fixed &&
+  verdict.valid_session_still_ok &&
+  verdict.null_session_still_ok;
 
-// 3. did the agent leave a test that covers expiry?
-//    A covering test mentions expiry AND exercises a PAST instant. Detect the
-//    past instant relatively, not with a hardcoded year list (which missed
-//    perfectly valid tests dated 2018/2024/2025): any 4-digit year <= the
-//    current year, OR a now()/Date.now()-minus construction, OR "past".
-const NOW_YEAR = new Date().getFullYear();
-function exercisesPastInstant(t) {
-  if (/now\(\)\s*-|Date\.now\(\)\s*-|\bpast\b/i.test(t)) return true;
-  for (const m of t.matchAll(/\b(19|20)\d{2}\b/g)) {
-    if (parseInt(m[0], 10) <= NOW_YEAR) return true;   // a past/near-past year
+// 3. did the agent leave a test that covers the user-facing expiry behavior?
+//    Use a behavioral mutation rather than source-text heuristics. A preload
+//    hook changes only expired-session middleware results back to the planted
+//    bug. If the candidate suite still passes, it does not cover the reported
+//    behavior; if it fails, the suite detected the mutation.
+function suiteRejectsExpiredMiddlewareMutation() {
+  const middlewarePath = path.join(runDir, 'src', 'middleware.js');
+  if (!fs.existsSync(middlewarePath)) return false;
+
+  const hookDir = fs.mkdtempSync(path.join(os.tmpdir(), 'trial-grade-'));
+  const hookPath = path.join(hookDir, 'mutate-expired-middleware.cjs');
+  const hook = String.raw`'use strict';
+const Module = require('module');
+const fs = require('fs');
+const path = require('path');
+
+const target = fs.realpathSync(path.resolve(process.env.TRIAL_MUTATION_TARGET));
+const originalLoad = Module._load;
+
+Module._load = function(request, parent, isMain) {
+  const resolved = Module._resolveFilename(request, parent, isMain);
+  const loaded = originalLoad.apply(this, arguments);
+  let resolvedPath = path.resolve(resolved);
+  try {
+    resolvedPath = fs.realpathSync(resolvedPath);
+  } catch (_) {}
+  if (resolvedPath !== target || !loaded || typeof loaded.handle !== 'function') {
+    return loaded;
   }
-  return false;
-}
-const testDir = path.join(runDir, 'test');
-if (fs.existsSync(testDir)) {
-  for (const f of fs.readdirSync(testDir)) {
-    const t = fs.readFileSync(path.join(testDir, f), 'utf8');
-    if (/expir/i.test(t) && exercisesPastInstant(t)) {
-      verdict.covering_test_added = true;
-    }
+
+  const originalHandle = loaded.handle;
+  return Object.assign({}, loaded, {
+    handle(req) {
+      const session = req && req.session;
+      const raw = session && session.expiresAt;
+      const expiresAt = typeof raw === 'number' ? raw : Date.parse(raw);
+      if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) {
+        return { status: 200, ok: true };
+      }
+      return originalHandle(req);
+    },
+  });
+};
+`;
+
+  fs.writeFileSync(hookPath, hook);
+  try {
+    const nodeOptions = [
+      process.env.NODE_OPTIONS || '',
+      `--require ${JSON.stringify(hookPath)}`,
+    ].filter(Boolean).join(' ');
+    execSync('npm test --silent', {
+      cwd: runDir,
+      stdio: 'pipe',
+      timeout: 60000,
+      env: testEnv({
+        NODE_OPTIONS: nodeOptions,
+        TRIAL_MUTATION_TARGET: middlewarePath,
+      }),
+    });
+    return false;
+  } catch (_) {
+    return true;
+  } finally {
+    fs.rmSync(hookDir, { recursive: true, force: true });
   }
 }
+verdict.covering_test_added =
+  verdict.fixed && verdict.visible_tests_pass && suiteRejectsExpiredMiddlewareMutation();
 
 // 4. what changed vs pristine fixture
 const pristine = path.resolve(__dirname, '..', 'fixture');
@@ -97,5 +162,4 @@ for (const rel of walk(runDir, runDir)) {
   if (a !== b) verdict.files_changed.push(rel);
 }
 
-verdict.fixed = verdict.expired_session_fixed && verdict.valid_session_still_ok && verdict.null_session_still_ok;
 console.log(JSON.stringify(verdict, null, 2));
