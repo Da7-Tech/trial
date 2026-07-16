@@ -138,6 +138,93 @@ test('dedicated target refuses a foreign file but --force overwrites it', () => 
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+function runArgs(cwd, args) {
+  return execFileSync('node', [installer, ...args], { cwd, encoding: 'utf8' });
+}
+
+test('symlinked destinations are refused and the link target is untouched', () => {
+  if (process.platform === 'win32') return;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trial-sym-'));
+  const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'trial-sym2-'));
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'trial-victim-'));
+  const victim = path.join(outside, 'victim.md');
+  // Contains the signature on purpose: without the lstat guard the dedicated
+  // branch would treat the link target as Trial-managed and overwrite it.
+  const original = 'IMPORTANT external file\nquotes "Trial — Pre-Delivery Evidence Gate"\n';
+  fs.writeFileSync(victim, original);
+
+  fs.mkdirSync(path.join(dir, '.cursor', 'rules'), { recursive: true });
+  fs.symlinkSync(victim, path.join(dir, '.cursor', 'rules', 'trial.mdc'));
+  assert.throws(() => run(dir, 'cursor'), /Command failed/, 'symlinked dedicated dest must be refused');
+  assert.throws(() => runArgs(dir, ['cursor', '--force']), /Command failed/, '--force must not write through a symlink');
+
+  fs.symlinkSync(victim, path.join(dir2, 'AGENTS.md'));
+  assert.throws(() => run(dir2, 'codex'), /Command failed/, 'symlinked append dest must be refused');
+
+  assert.strictEqual(fs.readFileSync(victim, 'utf8'), original, 'external file untouched');
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.rmSync(dir2, { recursive: true, force: true });
+  fs.rmSync(outside, { recursive: true, force: true });
+});
+
+test('a destination directory resolving outside the project is refused', () => {
+  if (process.platform === 'win32') return;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trial-symdir-'));
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'trial-outside-'));
+  fs.symlinkSync(outside, path.join(dir, '.cursor'));
+  assert.throws(() => run(dir, 'cursor'), /Command failed/, 'symlinked parent dir must be refused');
+  assert.strictEqual(fs.readdirSync(outside).length, 0, 'nothing created outside the project');
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.rmSync(outside, { recursive: true, force: true });
+});
+
+test('malformed or duplicated markers stop the installer instead of guessing', () => {
+  const cases = [
+    ['begin with no end', '<!-- trial:begin -->\nold body\n'],
+    ['end before begin', '<!-- trial:end -->\nnoise\n<!-- trial:begin -->\n'],
+    ['duplicated pairs', '<!-- trial:begin -->\na\n<!-- trial:end -->\n<!-- trial:begin -->\nb\n<!-- trial:end -->\n'],
+    ['stray begin above a real pair', 'HEAD\n<!-- trial:begin -->\nPRECIOUS\n<!-- trial:begin -->\nold\n<!-- trial:end -->\nTAIL\n'],
+  ];
+  for (const [label, content] of cases) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trial-marker-'));
+    fs.writeFileSync(path.join(dir, 'AGENTS.md'), content);
+    let err;
+    try { run(dir, 'codex'); } catch (e) { err = e; }
+    assert.ok(err, `${label}: exits non-zero`);
+    assert.match(String(err.stderr || ''), /malformed Trial markers/, `${label}: names the problem`);
+    assert.strictEqual(fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8'), content, `${label}: file untouched`);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('dedicated update keeps a .bak of the replaced content', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trial-bak-'));
+  const dest = path.join(dir, '.cursor', 'rules', 'trial.mdc');
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  // A personal file that merely QUOTES the signature is treated as
+  // Trial-managed by the substring test; the .bak is its safety net.
+  const personal = '# My notes\nabout the "Trial — Pre-Delivery Evidence Gate" idea\nirreplaceable prose\n';
+  fs.writeFileSync(dest, personal);
+  const out = run(dir, 'cursor');
+  assert.match(out, /saved to .*trial\.mdc\.bak/, 'update announces the backup');
+  assert.strictEqual(fs.readFileSync(`${dest}.bak`, 'utf8'), personal, 'backup holds the replaced content');
+  assert.match(fs.readFileSync(dest, 'utf8'), /# Trial/, 'rule installed');
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('--update is rejected as unknown instead of silently forcing', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trial-upd-'));
+  const dest = path.join(dir, '.cursor', 'rules', 'trial.mdc');
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  fs.writeFileSync(dest, '# my own file, no signature\n');
+  let err;
+  try { runArgs(dir, ['cursor', '--update']); } catch (e) { err = e; }
+  assert.ok(err, 'exits non-zero');
+  assert.match(String(err.stderr || ''), /Unknown option/, 'names the bad flag');
+  assert.strictEqual(fs.readFileSync(dest, 'utf8'), '# my own file, no signature\n', 'file preserved');
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 test('read-only destination fails with a friendly message, not a stack trace', () => {
   if (process.platform === 'win32') return;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trial-inst-'));

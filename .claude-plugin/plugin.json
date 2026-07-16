@@ -1,6 +1,6 @@
 {
   "name": "trial",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Pre-delivery evidence gate: withhold unsupported completion claims and release only verified results.",
   "author": {
     "name": "Da7-Tech",

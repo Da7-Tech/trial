@@ -44,8 +44,13 @@ function usage(code) {
 }
 
 const rawArgs = process.argv.slice(2);
-const force = rawArgs.some((a) => /^--(force|update)$/i.test(a));
-const positional = rawArgs.filter((a) => !/^--(force|update)$/i.test(a));
+const force = rawArgs.some((a) => /^--force$/i.test(a));
+const unknownFlags = rawArgs.filter((a) => /^--/.test(a) && !/^--(force|help|list)$/i.test(a));
+if (unknownFlags.length) {
+  console.error(`Unknown option "${unknownFlags[0]}".`);
+  usage(1);
+}
+const positional = rawArgs.filter((a) => !/^--force$/i.test(a));
 const arg = (positional[0] || '').toLowerCase().replace(/^--/, '');
 if (!arg || arg === 'help') usage(arg ? 0 : 1);
 if (arg === 'list') { console.log(Object.keys(TARGETS).join('\n')); process.exit(0); }
@@ -56,7 +61,33 @@ const src = fs.readFileSync(path.join(pkgRoot, srcRel), 'utf8');
 const dest = path.join(process.cwd(), destRel);
 const block = `${BEGIN}\n${src.trim()}\n${END}\n`;
 
+function fail(message) {
+  console.error(message);
+  process.exit(1);
+}
+
+// The installer must never write outside the project it is run in, and never
+// through a symlink: a hostile checkout could pre-plant the destination path
+// as a link to a file elsewhere (dotfiles, shared configs) and turn a routine
+// `npx … <agent>` into an out-of-tree overwrite.
+function assertDestinationConfined() {
+  let nearest = path.dirname(dest);
+  while (!fs.existsSync(nearest)) nearest = path.dirname(nearest);
+  const root = fs.realpathSync(process.cwd());
+  const anchor = fs.realpathSync(nearest);
+  if (anchor !== root && !anchor.startsWith(root + path.sep)) {
+    fail(`${destRel} resolves outside the project directory — refusing to write.`);
+  }
+  let stats = null;
+  try { stats = fs.lstatSync(dest); } catch (_) { /* not created yet */ }
+  if (stats && stats.isSymbolicLink()) {
+    fail(`${destRel} is a symlink — refusing to write through it. ` +
+      'Run the installer where the link points, or replace the link with a regular file.');
+  }
+}
+
 try {
+  assertDestinationConfined();
   fs.mkdirSync(path.dirname(dest), { recursive: true });
 
   if (!fs.existsSync(dest)) {
@@ -66,10 +97,20 @@ try {
     fs.writeFileSync(dest, append ? block : src);
     console.log(`Trial installed: ${destRel}`);
   } else if (append) {
-    let existing = fs.readFileSync(dest, 'utf8');
-    if (existing.includes(BEGIN)) {
-      existing = existing.replace(new RegExp(`${BEGIN}[\\s\\S]*?${END}\\n?`), block);
-      fs.writeFileSync(dest, existing);
+    const existing = fs.readFileSync(dest, 'utf8');
+    const begins = existing.split(BEGIN).length - 1;
+    const ends = existing.split(END).length - 1;
+    // A malformed or duplicated marker pair means the managed region cannot be
+    // identified safely: updating anyway would either claim success while
+    // changing nothing or eat user content straying between the wrong pair.
+    // Stop and say so instead of guessing.
+    if (begins !== ends || begins > 1 ||
+        (begins === 1 && existing.indexOf(END) < existing.indexOf(BEGIN))) {
+      fail(`${destRel} has malformed Trial markers (${begins} begin / ${ends} end) — ` +
+        'repair or remove them manually, then re-run.');
+    }
+    if (begins === 1) {
+      fs.writeFileSync(dest, existing.replace(new RegExp(`${BEGIN}[\\s\\S]*?${END}\\n?`), block));
       console.log(`Trial updated inside existing ${destRel}`);
     } else {
       fs.writeFileSync(dest, existing.trimEnd() + '\n\n' + block);
@@ -84,8 +125,14 @@ try {
     if (existing === src) {
       console.log(`Trial already up to date: ${destRel}`);
     } else if (force || existing.includes(TRIAL_SIGNATURE)) {
+      // The signature test can misfire on a personal file that merely quotes
+      // it, so every destructive update keeps the replaced content beside the
+      // destination as a one-step undo.
+      const bak = `${dest}.bak`;
+      fs.rmSync(bak, { force: true });
+      fs.writeFileSync(bak, existing);
       fs.writeFileSync(dest, src);
-      console.log(`Trial updated: ${destRel}`);
+      console.log(`Trial updated: ${destRel} (previous content saved to ${destRel}.bak)`);
     } else {
       console.error(`${destRel} already exists and is not a Trial file — refusing to overwrite. ` +
         `Re-run with --force to replace it, or remove it first.`);

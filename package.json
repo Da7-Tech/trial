@@ -1,6 +1,6 @@
 {
   "name": "trial-skill",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "A pre-delivery evidence gate that withholds unsupported completion claims and releases only verified results.",
   "keywords": [
     "ai-agents",

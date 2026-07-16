@@ -79,7 +79,7 @@ The full rule your agent reads is [`agents/codex/AGENTS.md`](agents/codex/AGENTS
 npx github:Da7-Tech/trial cursor
 ```
 
-Re-running upgrades in place: shared files (`AGENTS.md`, …) update between their managed markers, and dedicated rule files update when they hold a Trial rule (a same-version reinstall is a no-op). A non-Trial file already at the destination path is never clobbered — the installer refuses and points you to `--force` if you really mean to replace it.
+Re-running upgrades in place: shared files (`AGENTS.md`, …) update between their managed markers — malformed or duplicated markers make the installer stop rather than guess — and dedicated rule files update when they carry the Trial signature, with the replaced content always saved to `<file>.bak` first. A file without the signature is refused (re-run with `--force` to replace it; the `.bak` is still written), and the installer never writes through a symlink or outside the project directory.
 
 Or copy the file yourself:
 

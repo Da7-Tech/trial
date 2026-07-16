@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.5.3 — 2026-07-16
+
+Installer hardening after an adversarial audit of the 0.5.2 upgrade path; no
+rule change.
+
+- **The installer now refuses symlinked destinations and paths resolving
+  outside the project.** A hostile checkout could pre-plant a destination path
+  (`.cursor/rules/trial.mdc`, `AGENTS.md`, or a parent directory) as a symlink
+  to a file elsewhere, and `npx github:Da7-Tech/trial <agent>` — with or
+  without `--force` — would overwrite the link's target. Writes are now
+  confined to the real project directory and never follow a symlink.
+- **Malformed managed markers stop the update instead of mis-firing.** A
+  `trial:begin` with no matching `trial:end` previously produced a false
+  "updated" success while installing nothing; a stray `begin` above the real
+  block silently deleted the user content between them; duplicated pairs left
+  a permanently stale second block. All three cases now abort with a clear
+  message and leave the file byte-identical.
+- **Every destructive dedicated-file update keeps a `.bak`.** The signature
+  substring test cannot distinguish an older Trial rule from a personal file
+  that merely quotes the signature phrase, so the replaced content is always
+  saved next to the destination as a one-step undo (also under `--force`).
+- **`--update` is gone; unknown flags are rejected.** It was an undocumented
+  alias of `--force` whose gentle name belied force semantics. `--force` is
+  the single, explicit escape hatch, and any unrecognized `--flag` now exits
+  with usage instead of being ignored.
+- **Known, accepted limitation:** the installer performs no version
+  comparison — re-running an *older* package over a newer installed rule
+  overwrites it (the `.bak` and your VCS are the recovery path).
+- **No behavioral rule change.** The canonical rule body is byte-identical to
+  0.5.1/0.5.2; only the installer, its tests, and version metadata changed.
+
 ## 0.5.2 — 2026-07-16
 
 Installer upgrade path for dedicated-file targets; no rule change.
