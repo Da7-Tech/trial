@@ -31,13 +31,22 @@ const TARGETS = {
 const BEGIN = '<!-- trial:begin -->';
 const END = '<!-- trial:end -->';
 
+// Stable signature present in every Trial rule body since 0.3.0. Used to tell a
+// Trial-managed dedicated file (safe to update in place) from a user's own file
+// that happens to sit at the same path (must not be clobbered).
+const TRIAL_SIGNATURE = 'Trial — Pre-Delivery Evidence Gate';
+
 function usage(code) {
-  console.log('Usage: npx github:Da7-Tech/trial <agent>');
+  console.log('Usage: npx github:Da7-Tech/trial <agent> [--force]');
   console.log('Agents: ' + Object.keys(TARGETS).join(', '));
+  console.log('  --force   overwrite a non-Trial file at the destination path');
   process.exit(code);
 }
 
-const arg = (process.argv[2] || '').toLowerCase().replace(/^--/, '');
+const rawArgs = process.argv.slice(2);
+const force = rawArgs.some((a) => /^--(force|update)$/i.test(a));
+const positional = rawArgs.filter((a) => !/^--(force|update)$/i.test(a));
+const arg = (positional[0] || '').toLowerCase().replace(/^--/, '');
 if (!arg || arg === 'help') usage(arg ? 0 : 1);
 if (arg === 'list') { console.log(Object.keys(TARGETS).join('\n')); process.exit(0); }
 if (!TARGETS[arg]) { console.error(`Unknown agent "${arg}".`); usage(1); }
@@ -67,8 +76,21 @@ try {
       console.log(`Trial appended to existing ${destRel}`);
     }
   } else {
-    console.error(`${destRel} already exists — refusing to overwrite. Remove it first or merge by hand.`);
-    process.exit(1);
+    // Dedicated-file target whose destination already exists. Update in place
+    // when it is a Trial-managed file (any prior version carries the
+    // signature) so upgrades and same-version reinstalls are idempotent;
+    // refuse only a genuinely foreign file so user content is never lost.
+    const existing = fs.readFileSync(dest, 'utf8');
+    if (existing === src) {
+      console.log(`Trial already up to date: ${destRel}`);
+    } else if (force || existing.includes(TRIAL_SIGNATURE)) {
+      fs.writeFileSync(dest, src);
+      console.log(`Trial updated: ${destRel}`);
+    } else {
+      console.error(`${destRel} already exists and is not a Trial file — refusing to overwrite. ` +
+        `Re-run with --force to replace it, or remove it first.`);
+      process.exit(1);
+    }
   }
 } catch (err) {
   // Friendly message instead of a raw Node stack trace (e.g. EACCES on a

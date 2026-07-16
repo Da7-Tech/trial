@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.5.2 — 2026-07-16
+
+Installer upgrade path for dedicated-file targets; no rule change.
+
+- **Dedicated-file targets (claude, cursor, windsurf, cline, kiro, roo) now
+  upgrade in place.** Previously any second run refused, so there was no way to
+  move an installed rule from an older version to a newer one — the very
+  release that shipped an activation-metadata fix could not be rolled out with
+  the installer. The installer now recognizes a Trial-managed file by its
+  stable rule signature and updates it; a same-version reinstall is idempotent
+  and exits 0.
+- **User files are still protected.** A non-Trial file at the destination path
+  is refused, with a hint to re-run with `--force`. `--force` (alias
+  `--update`) overwrites an existing file explicitly.
+- **No behavioral rule change.** The canonical private-draft, fail-closed
+  protocol is byte-identical to 0.5.1; only the installer, its tests, and the
+  version metadata changed.
+
 ## 0.5.1 — 2026-07-16
 
 Activation-contract hardening.

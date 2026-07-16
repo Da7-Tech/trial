@@ -65,12 +65,11 @@ test('all twelve documented targets install to their advertised paths', () => {
           `${agent} duplicated the managed block`,
         );
       } else {
-        assert.throws(
-          () => run(dir, agent),
-          /Command failed/,
-          `${agent} should refuse to overwrite a dedicated rule file`,
-        );
-        assert.strictEqual(fs.readFileSync(dest, 'utf8'), first);
+        // Dedicated-file target: re-running the same version is idempotent
+        // (exit 0, content unchanged), not a hard refusal.
+        const out = run(dir, agent);
+        assert.match(out, /already up to date/, `${agent} same-version reinstall should be idempotent`);
+        assert.strictEqual(fs.readFileSync(dest, 'utf8'), first, `${agent} content changed on reinstall`);
       }
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
@@ -102,6 +101,40 @@ test('append install preserves pre-existing user content', () => {
   const out2 = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
   assert.strictEqual((out2.match(/^# Trial/gm) || []).length, 1);
   assert.ok(out2.includes('My rules'));
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('dedicated target upgrades a prior Trial version in place', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trial-inst-'));
+  const dest = path.join(dir, '.cursor', 'rules', 'trial.mdc');
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  // Simulate an older installed Trial version: carries the signature but has
+  // stale extra content that the current version does not.
+  const current = fs.readFileSync(
+    path.join(__dirname, '..', 'agents', 'cursor', '.cursor', 'rules', 'trial.mdc'),
+    'utf8',
+  );
+  fs.writeFileSync(dest, current + '\n<!-- stale 0.4.x remnant -->\n');
+  const out = run(dir, 'cursor');
+  assert.match(out, /updated/, 'a prior Trial file should update in place');
+  assert.strictEqual(fs.readFileSync(dest, 'utf8'), current, 'upgraded file matches current version exactly');
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('dedicated target refuses a foreign file but --force overwrites it', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trial-inst-'));
+  const dest = path.join(dir, '.cursor', 'rules', 'trial.mdc');
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  fs.writeFileSync(dest, '# My own cursor rule, nothing to do with Trial\n');
+
+  // Without --force: refuse and preserve the user's file.
+  assert.throws(() => run(dir, 'cursor'), /Command failed/, 'foreign file must not be overwritten');
+  assert.match(fs.readFileSync(dest, 'utf8'), /My own cursor rule/, 'user content preserved');
+
+  // With --force: overwrite.
+  const out = execFileSync('node', [installer, 'cursor', '--force'], { cwd: dir, encoding: 'utf8' });
+  assert.match(out, /updated/, '--force should overwrite');
+  assert.match(fs.readFileSync(dest, 'utf8'), /Trial — Pre-Delivery Evidence Gate/, 'Trial rule now installed');
   fs.rmSync(dir, { recursive: true, force: true });
 });
 

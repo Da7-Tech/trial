@@ -79,6 +79,8 @@ The full rule your agent reads is [`agents/codex/AGENTS.md`](agents/codex/AGENTS
 npx github:Da7-Tech/trial cursor
 ```
 
+Re-running upgrades in place: shared files (`AGENTS.md`, …) update between their managed markers, and dedicated rule files update when they hold a Trial rule (a same-version reinstall is a no-op). A non-Trial file already at the destination path is never clobbered — the installer refuses and points you to `--force` if you really mean to replace it.
+
 Or copy the file yourself:
 
 | Agent | Copy this | To |

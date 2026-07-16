@@ -3,7 +3,7 @@ name: trial
 description: "A pre-delivery evidence gate for coding agents. Hold the final response as a private draft, judge every user-visible claim against fresh covering receipts, and release only verified results. Use when unsupported completion claims, shallow green tests, stale evidence, or high-risk changes must not reach the user."
 license: MIT
 metadata:
-  version: 0.5.1
+  version: 0.5.2
 ---
 
 # Trial — Pre-Delivery Evidence Gate
