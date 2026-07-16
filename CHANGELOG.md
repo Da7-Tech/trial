@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.1 — 2026-07-16
+
+Activation-contract hardening.
+
+- **Always-on metadata is now protected by tests.** Cursor must retain
+  `alwaysApply: true`, and the Claude and packaged skill descriptions must keep
+  the explicit “before every final response” trigger that is visible before the
+  full rule body is loaded.
+- **No behavioral rule change.** The canonical private-draft, fail-closed
+  protocol remains byte-identical to version 0.5.0; this patch prevents an
+  adapter-metadata regression from silently making the gate optional.
+
 ## 0.5.0 — 2026-07-16
 
 Pre-delivery enforcement semantics.

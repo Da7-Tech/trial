@@ -8,6 +8,11 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8').replace(/\r\n/g, '\n').trim();
 const stripFrontmatter = (text) => text.replace(/^---\n[\s\S]*?\n---\n*/, '').trim();
+const readFrontmatter = (rel) => {
+  const match = read(rel).match(/^---\n([\s\S]*?)\n---/);
+  assert.ok(match, `${rel} is missing YAML frontmatter`);
+  return match[1];
+};
 
 const canonical = read('agents/codex/AGENTS.md');
 
@@ -37,6 +42,24 @@ test('plain agent copies match canonical rule', () => {
 test('frontmattered agent copies match canonical rule', () => {
   for (const rel of frontmatteredCopies) {
     assert.strictEqual(stripFrontmatter(read(rel)), canonical, `${rel} body drifted from agents/codex/AGENTS.md`);
+  }
+});
+
+test('activation metadata keeps Trial in the pre-delivery path', () => {
+  const cursor = readFrontmatter('agents/cursor/.cursor/rules/trial.mdc');
+  assert.match(
+    cursor,
+    /^alwaysApply:\s*true$/m,
+    'Cursor must apply Trial on every request, not only when guessed relevant',
+  );
+
+  for (const rel of ['agents/claude/SKILL.md', 'skills/trial/SKILL.md']) {
+    const frontmatter = readFrontmatter(rel);
+    assert.match(
+      frontmatter,
+      /^description:.*Use before every final response/m,
+      `${rel} must advertise the pre-delivery trigger before its body is loaded`,
+    );
   }
 });
 
@@ -88,7 +111,7 @@ test('pre-delivery gate blocks unsupported claims before the user sees them', ()
 });
 
 test('versions agree across spec, plugin and package', () => {
-  const specVersion = read('SKILL.md').match(/^version:\s*(\S+)/m)[1];
+  const specVersion = read('SKILL.md').match(/^\s{2}version:\s*(\S+)/m)[1];
   const plugin = JSON.parse(read('.claude-plugin/plugin.json'));
   const pkg = JSON.parse(read('package.json'));
   assert.strictEqual(plugin.version, specVersion, 'plugin.json version drifted from SKILL.md');
